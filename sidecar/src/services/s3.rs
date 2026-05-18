@@ -11,8 +11,22 @@ use crate::auth::login::get_role_credentials;
 
 pub async fn build_client(profile: &SsoProfile) -> Result<Client> {
     let creds = resolve_credentials(profile).await?;
+    build_client_with_creds(&creds, &profile.region).await
+}
+
+// Builds an S3 client for a specific bucket by detecting its region first.
+// This handles cross-region buckets: list_buckets may return buckets from any region.
+pub async fn build_client_for_bucket(profile: &SsoProfile, bucket: &str) -> Result<Client> {
+    let creds = resolve_credentials(profile).await?;
+    // Bootstrap client in profile region to call get_bucket_location
+    let base = build_client_with_creds(&creds, &profile.region).await?;
+    let region = get_bucket_region(&base, bucket).await?;
+    build_client_with_creds(&creds, &region).await
+}
+
+async fn build_client_with_creds(creds: &CachedCredentials, region: &str) -> Result<Client> {
     let sdk_config = aws_config::defaults(BehaviorVersion::latest())
-        .region(aws_sdk_s3::config::Region::new(profile.region.clone()))
+        .region(aws_sdk_s3::config::Region::new(region.to_string()))
         .credentials_provider(Credentials::new(
             &creds.access_key_id,
             &creds.secret_access_key,
@@ -23,6 +37,17 @@ pub async fn build_client(profile: &SsoProfile) -> Result<Client> {
         .load()
         .await;
     Ok(Client::new(&sdk_config))
+}
+
+async fn get_bucket_region(client: &Client, bucket: &str) -> Result<String> {
+    let resp = client.get_bucket_location().bucket(bucket).send().await?;
+    // LocationConstraint is None for us-east-1 buckets
+    let region = resp
+        .location_constraint()
+        .map(|c| c.as_str().to_string())
+        .filter(|s| !s.is_empty())
+        .unwrap_or_else(|| "us-east-1".to_string());
+    Ok(region)
 }
 
 async fn resolve_credentials(profile: &SsoProfile) -> Result<CachedCredentials> {

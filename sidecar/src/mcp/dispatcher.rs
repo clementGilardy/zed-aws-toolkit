@@ -21,7 +21,7 @@ impl Dispatcher {
         match self.handlers.get(&req.tool) {
             Some(handler) => match handler(req.params) {
                 Ok(data) => McpResponse::ok(req.id, data),
-                Err(e) => McpResponse::err(req.id, e.to_string()),
+                Err(e) => McpResponse::err(req.id, format!("{:#}", e)),
             },
             None => McpResponse::err(req.id, format!("unknown tool: {}", req.tool)),
         }

@@ -92,7 +92,7 @@ async fn s3_list_objects_handler(state: SharedState, params: Value) -> Result<Va
         .ok_or_else(|| anyhow::anyhow!("missing required param: bucket"))?;
     let prefix = params["prefix"].as_str();
     let max_keys = params["max_keys"].as_i64().map(|v| v as i32);
-    let client = svc::build_client(&profile).await?;
+    let client = svc::build_client_for_bucket(&profile, bucket).await?;
     let objects = svc::list_objects(&client, bucket, prefix, max_keys).await?;
     Ok(json!({ "objects": objects }))
 }
@@ -105,7 +105,7 @@ async fn s3_get_object_handler(state: SharedState, params: Value) -> Result<Valu
     let key = params["key"]
         .as_str()
         .ok_or_else(|| anyhow::anyhow!("missing required param: key"))?;
-    let client = svc::build_client(&profile).await?;
+    let client = svc::build_client_for_bucket(&profile, bucket).await?;
     let bytes = svc::get_object(&client, bucket, key).await?;
     let content = match String::from_utf8(bytes.clone()) {
         Ok(s) => json!({ "content": s, "encoding": "utf8" }),
@@ -127,7 +127,7 @@ async fn s3_put_object_handler(state: SharedState, params: Value) -> Result<Valu
         .ok_or_else(|| anyhow::anyhow!("missing required param: body"))?
         .as_bytes()
         .to_vec();
-    let client = svc::build_client(&profile).await?;
+    let client = svc::build_client_for_bucket(&profile, bucket).await?;
     svc::put_object(&client, bucket, key, body).await?;
     Ok(json!({ "uploaded": key, "bucket": bucket }))
 }
@@ -140,7 +140,7 @@ async fn s3_delete_object_handler(state: SharedState, params: Value) -> Result<V
     let key = params["key"]
         .as_str()
         .ok_or_else(|| anyhow::anyhow!("missing required param: key"))?;
-    let client = svc::build_client(&profile).await?;
+    let client = svc::build_client_for_bucket(&profile, bucket).await?;
     svc::delete_object(&client, bucket, key).await?;
     Ok(json!({ "deleted": key, "bucket": bucket }))
 }
@@ -154,7 +154,7 @@ async fn s3_presign_handler(state: SharedState, params: Value) -> Result<Value> 
         .as_str()
         .ok_or_else(|| anyhow::anyhow!("missing required param: key"))?;
     let expires_secs = params["expires_secs"].as_u64().unwrap_or(3600);
-    let client = svc::build_client(&profile).await?;
+    let client = svc::build_client_for_bucket(&profile, bucket).await?;
     let url = svc::presign_get(&client, bucket, key, expires_secs).await?;
     Ok(json!({ "url": url, "expires_secs": expires_secs }))
 }
