@@ -1,0 +1,6 @@
+[workspace]
+members = [
+    "extension",
+    "sidecar",
+]
+resolver = "2"
