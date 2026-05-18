@@ -1,7 +1,9 @@
 use anyhow::{bail, Result};
 use aws_config::BehaviorVersion;
 use aws_sdk_s3::config::Credentials;
+use aws_sdk_s3::presigning::PresigningConfig;
 use aws_sdk_s3::Client;
+use std::time::Duration;
 
 use crate::auth::cache::{read_sso_token, CachedCredentials};
 use crate::auth::config::SsoProfile;
@@ -42,6 +44,78 @@ pub async fn list_buckets(client: &Client) -> Result<Vec<String>> {
         .filter_map(|b| b.name().map(str::to_string))
         .collect();
     Ok(names)
+}
+
+pub async fn list_objects(
+    client: &Client,
+    bucket: &str,
+    prefix: Option<&str>,
+    max_keys: Option<i32>,
+) -> Result<Vec<serde_json::Value>> {
+    let mut req = client.list_objects_v2().bucket(bucket);
+    if let Some(p) = prefix {
+        req = req.prefix(p);
+    }
+    if let Some(m) = max_keys {
+        req = req.max_keys(m);
+    }
+    let resp = req.send().await?;
+    let objects = resp
+        .contents()
+        .iter()
+        .map(|o| {
+            serde_json::json!({
+                "key": o.key().unwrap_or_default(),
+                "size": o.size().unwrap_or(0),
+                "last_modified": o.last_modified().map(|t| t.to_string()),
+            })
+        })
+        .collect();
+    Ok(objects)
+}
+
+pub async fn get_object(client: &Client, bucket: &str, key: &str) -> Result<Vec<u8>> {
+    let resp = client.get_object().bucket(bucket).key(key).send().await?;
+    let bytes = resp.body.collect().await?.into_bytes().to_vec();
+    Ok(bytes)
+}
+
+pub async fn put_object(client: &Client, bucket: &str, key: &str, body: Vec<u8>) -> Result<()> {
+    client
+        .put_object()
+        .bucket(bucket)
+        .key(key)
+        .body(body.into())
+        .send()
+        .await?;
+    Ok(())
+}
+
+pub async fn delete_object(client: &Client, bucket: &str, key: &str) -> Result<()> {
+    client
+        .delete_object()
+        .bucket(bucket)
+        .key(key)
+        .send()
+        .await?;
+    Ok(())
+}
+
+pub async fn presign_get(
+    client: &Client,
+    bucket: &str,
+    key: &str,
+    expires_secs: u64,
+) -> Result<String> {
+    let config = PresigningConfig::expires_in(Duration::from_secs(expires_secs))
+        .map_err(|e| anyhow::anyhow!("presign config error: {e}"))?;
+    let presigned = client
+        .get_object()
+        .bucket(bucket)
+        .key(key)
+        .presigned(config)
+        .await?;
+    Ok(presigned.uri().to_string())
 }
 
 #[cfg(test)]
