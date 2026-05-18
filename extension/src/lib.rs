@@ -12,10 +12,9 @@ impl zed::Extension for AwsToolkitExtension {
         _context_server_id: &ContextServerId,
         _project: &Project,
     ) -> Result<zed::Command> {
-        let sidecar_path = std::env::current_exe()
+        // Zed sets the working directory to the extension bundle directory at runtime
+        let sidecar_path = std::env::current_dir()
             .map_err(|e| e.to_string())?
-            .parent()
-            .ok_or("no parent dir")?
             .join("zed-aws-sidecar");
 
         Ok(zed::Command {
