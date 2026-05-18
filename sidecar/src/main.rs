@@ -1,6 +1,7 @@
 mod mcp;
 mod auth;
 mod tools;
+mod services;
 
 use auth::state::new_shared_state;
 use mcp::{Dispatcher, McpRequest};
@@ -10,7 +11,8 @@ use tokio::io::{AsyncBufReadExt, AsyncWriteExt, BufReader};
 async fn main() -> anyhow::Result<()> {
     let state = new_shared_state();
     let mut dispatcher = Dispatcher::new();
-    tools::auth::register(&mut dispatcher, state);
+    tools::auth::register(&mut dispatcher, state.clone());
+    tools::s3::register(&mut dispatcher, state);
 
     let stdin = tokio::io::stdin();
     let stdout = tokio::io::stdout();
