@@ -4,7 +4,7 @@ mod tools;
 mod services;
 
 use auth::state::new_shared_state;
-use mcp::{Dispatcher, McpRequest};
+use mcp::{Dispatcher, JsonRpcMessage};
 use tokio::io::{AsyncBufReadExt, AsyncWriteExt, BufReader};
 
 #[tokio::main(flavor = "multi_thread")]
@@ -28,14 +28,24 @@ async fn main() -> anyhow::Result<()> {
         if line.is_empty() {
             continue;
         }
-        let response = match serde_json::from_str::<McpRequest>(&line) {
-            Ok(req) => dispatcher.dispatch(req),
-            Err(e) => mcp::McpResponse::err(0, format!("parse error: {e}")),
+        let msg: JsonRpcMessage = match serde_json::from_str(&line) {
+            Ok(m) => m,
+            Err(e) => {
+                let resp = mcp::JsonRpcResponse::error(None, -32700, format!("parse error: {e}"));
+                let mut out = serde_json::to_string(&resp)?;
+                out.push('\n');
+                writer.write_all(out.as_bytes()).await?;
+                writer.flush().await?;
+                continue;
+            }
         };
-        let mut out = serde_json::to_string(&response)?;
-        out.push('\n');
-        writer.write_all(out.as_bytes()).await?;
-        writer.flush().await?;
+        if let Some(resp) = dispatcher.dispatch(msg) {
+            let mut out = serde_json::to_string(&resp)?;
+            out.push('\n');
+            writer.write_all(out.as_bytes()).await?;
+            writer.flush().await?;
+        }
+        // notifications (None) → no response written
     }
     Ok(())
 }
