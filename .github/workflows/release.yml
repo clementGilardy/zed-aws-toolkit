@@ -111,21 +111,22 @@ jobs:
         with:
           path: artifacts/
 
-      - name: Rename artifacts for release
+      - name: Collect release assets
         run: |
-          mv artifacts/extension-wasm/zed_aws_toolkit.wasm artifacts/zed_aws_toolkit.wasm
-          mv artifacts/zed-aws-sidecar-linux-x86_64/zed-aws-sidecar artifacts/zed-aws-sidecar-linux-x86_64
-          mv artifacts/zed-aws-sidecar-linux-aarch64/zed-aws-sidecar artifacts/zed-aws-sidecar-linux-aarch64
-          mv artifacts/zed-aws-sidecar-macos-x86_64/zed-aws-sidecar artifacts/zed-aws-sidecar-macos-x86_64
-          mv artifacts/zed-aws-sidecar-macos-aarch64/zed-aws-sidecar artifacts/zed-aws-sidecar-macos-aarch64
+          mkdir -p dist
+          cp artifacts/extension-wasm/zed_aws_toolkit.wasm dist/zed_aws_toolkit.wasm
+          cp artifacts/zed-aws-sidecar-linux-x86_64/zed-aws-sidecar dist/zed-aws-sidecar-linux-x86_64
+          cp artifacts/zed-aws-sidecar-linux-aarch64/zed-aws-sidecar dist/zed-aws-sidecar-linux-aarch64
+          cp artifacts/zed-aws-sidecar-macos-x86_64/zed-aws-sidecar dist/zed-aws-sidecar-macos-x86_64
+          cp artifacts/zed-aws-sidecar-macos-aarch64/zed-aws-sidecar dist/zed-aws-sidecar-macos-aarch64
 
       - name: Create Release
         uses: softprops/action-gh-release@v2
         with:
           files: |
-            artifacts/zed_aws_toolkit.wasm
-            artifacts/zed-aws-sidecar-linux-x86_64
-            artifacts/zed-aws-sidecar-linux-aarch64
-            artifacts/zed-aws-sidecar-macos-x86_64
-            artifacts/zed-aws-sidecar-macos-aarch64
+            dist/zed_aws_toolkit.wasm
+            dist/zed-aws-sidecar-linux-x86_64
+            dist/zed-aws-sidecar-linux-aarch64
+            dist/zed-aws-sidecar-macos-x86_64
+            dist/zed-aws-sidecar-macos-aarch64
           generate_release_notes: true
