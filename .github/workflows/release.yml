@@ -15,16 +15,16 @@ jobs:
       - name: Install Rust
         uses: dtolnay/rust-toolchain@stable
         with:
-          targets: wasm32-wasip1
+          targets: wasm32-wasip2
 
       - name: Build WASM
-        run: cargo build -p zed-aws-toolkit --target wasm32-wasip1 --release
+        run: cargo build -p zed-aws-toolkit --target wasm32-wasip2 --release
 
       - name: Upload WASM artifact
         uses: actions/upload-artifact@v4
         with:
           name: extension-wasm
-          path: target/wasm32-wasip1/release/zed_aws_toolkit.wasm
+          path: target/wasm32-wasip2/release/zed_aws_toolkit.wasm
 
   build-sidecar-linux-x86_64:
     name: Build sidecar (x86_64-linux)
