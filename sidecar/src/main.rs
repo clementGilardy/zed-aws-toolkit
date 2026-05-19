@@ -12,7 +12,9 @@ async fn main() -> anyhow::Result<()> {
     let state = new_shared_state();
     let mut dispatcher = Dispatcher::new();
     tools::auth::register(&mut dispatcher, state.clone());
-    tools::s3::register(&mut dispatcher, state);
+    tools::s3::register(&mut dispatcher, state.clone());
+    tools::lambda::register(&mut dispatcher, state.clone());
+    tools::cloudwatch::register(&mut dispatcher, state);
 
     let stdin = tokio::io::stdin();
     let stdout = tokio::io::stdout();

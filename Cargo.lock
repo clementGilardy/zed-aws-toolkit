@@ -146,6 +146,56 @@ dependencies = [
 ]
 
 [[package]]
+name = "aws-sdk-cloudwatchlogs"
+version = "1.131.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "ff364cad0c58f3e67d81b68a56f4d1d8a26249128573298195b3d0dd79039f5b"
+dependencies = [
+ "aws-credential-types",
+ "aws-runtime",
+ "aws-smithy-async",
+ "aws-smithy-eventstream",
+ "aws-smithy-http",
+ "aws-smithy-json",
+ "aws-smithy-observability",
+ "aws-smithy-runtime",
+ "aws-smithy-runtime-api",
+ "aws-smithy-types",
+ "aws-types",
+ "bytes",
+ "fastrand",
+ "http 0.2.12",
+ "http 1.4.0",
+ "regex-lite",
+ "tracing",
+]
+
+[[package]]
+name = "aws-sdk-lambda"
+version = "1.122.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "6e231021d78da565357c3a53466215114fb4e8e4fd1289e285abbc3968bb6c4d"
+dependencies = [
+ "aws-credential-types",
+ "aws-runtime",
+ "aws-smithy-async",
+ "aws-smithy-eventstream",
+ "aws-smithy-http",
+ "aws-smithy-json",
+ "aws-smithy-observability",
+ "aws-smithy-runtime",
+ "aws-smithy-runtime-api",
+ "aws-smithy-types",
+ "aws-types",
+ "bytes",
+ "fastrand",
+ "http 0.2.12",
+ "http 1.4.0",
+ "regex-lite",
+ "tracing",
+]
+
+[[package]]
 name = "aws-sdk-s3"
 version = "1.132.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2190,6 +2240,8 @@ version = "0.1.0"
 dependencies = [
  "anyhow",
  "aws-config",
+ "aws-sdk-cloudwatchlogs",
+ "aws-sdk-lambda",
  "aws-sdk-s3",
  "aws-sdk-sso",
  "aws-sdk-ssooidc",
