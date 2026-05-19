@@ -108,25 +108,33 @@ pub async fn tail(
         now - 15 * 60 * 1000
     });
 
-    let mut req = client
-        .filter_log_events()
-        .log_group_name(group)
-        .start_time(start);
-    if let Some(s) = stream {
-        req = req.log_stream_names(s.to_string());
-    }
-    let resp = req.send().await?;
-    let events = resp
-        .events()
-        .iter()
-        .map(|e| {
-            serde_json::json!({
+    let mut events = Vec::new();
+    let mut next_token: Option<String> = None;
+
+    loop {
+        let mut req = client
+            .filter_log_events()
+            .log_group_name(group)
+            .start_time(start);
+        if let Some(s) = stream {
+            req = req.log_stream_names(s.to_string());
+        }
+        if let Some(t) = next_token.take() {
+            req = req.next_token(t);
+        }
+        let resp = req.send().await?;
+        for e in resp.events() {
+            events.push(serde_json::json!({
                 "timestamp_ms": e.timestamp(),
                 "message": e.message().unwrap_or_default(),
                 "stream": e.log_stream_name().unwrap_or_default(),
-            })
-        })
-        .collect();
+            }));
+        }
+        match resp.next_token() {
+            Some(t) => next_token = Some(t.to_string()),
+            None => break,
+        }
+    }
     Ok(events)
 }
 
@@ -144,25 +152,31 @@ pub async fn search(
         now - 60 * 60 * 1000
     });
 
-    let resp = client
-        .filter_log_events()
-        .log_group_name(group)
-        .filter_pattern(query)
-        .start_time(start)
-        .send()
-        .await?;
+    let mut events = Vec::new();
+    let mut next_token: Option<String> = None;
 
-    let events = resp
-        .events()
-        .iter()
-        .map(|e| {
-            serde_json::json!({
+    loop {
+        let mut req = client
+            .filter_log_events()
+            .log_group_name(group)
+            .filter_pattern(query)
+            .start_time(start);
+        if let Some(t) = next_token.take() {
+            req = req.next_token(t);
+        }
+        let resp = req.send().await?;
+        for e in resp.events() {
+            events.push(serde_json::json!({
                 "timestamp_ms": e.timestamp(),
                 "message": e.message().unwrap_or_default(),
                 "stream": e.log_stream_name().unwrap_or_default(),
-            })
-        })
-        .collect();
+            }));
+        }
+        match resp.next_token() {
+            Some(t) => next_token = Some(t.to_string()),
+            None => break,
+        }
+    }
     Ok(events)
 }
 
@@ -172,13 +186,18 @@ mod tests {
 
     #[test]
     fn tail_default_since_is_15_minutes_ago() {
-        let now_ms = std::time::SystemTime::now()
+        let before_ms = std::time::SystemTime::now()
             .duration_since(std::time::UNIX_EPOCH)
             .unwrap()
             .as_millis() as i64;
-        let expected_start = now_ms - 15 * 60 * 1000;
-        let actual = expected_start;
-        assert!((actual - expected_start).abs() < 1000);
+        let default_start = before_ms - 15 * 60 * 1000;
+        let after_ms = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap()
+            .as_millis() as i64;
+        let expected_15min_ago = after_ms - 15 * 60 * 1000;
+        // default_start must be within 1s of 15 minutes ago
+        assert!((default_start - expected_15min_ago).abs() < 1000);
     }
 
     #[test]
