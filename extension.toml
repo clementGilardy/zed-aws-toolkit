@@ -1,4 +1,4 @@
-id = "zed-aws-toolkit"
+id = "aws-toolkit"
 name = "AWS Toolkit"
 version = "0.5.0"
 schema_version = 1
