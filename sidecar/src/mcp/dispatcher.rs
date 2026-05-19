@@ -31,11 +31,17 @@ impl Dispatcher {
         let id = msg.id.clone();
 
         match method {
-            "initialize" => Some(JsonRpcResponse::result(id, json!({
-                "protocolVersion": "2024-11-05",
-                "capabilities": { "tools": {} },
-                "serverInfo": { "name": "zed-aws-toolkit", "version": "0.5.0" }
-            }))),
+            "initialize" => {
+                let proto = msg.params.as_ref()
+                    .and_then(|p| p["protocolVersion"].as_str())
+                    .unwrap_or("2024-11-05")
+                    .to_owned();
+                Some(JsonRpcResponse::result(id, json!({
+                    "protocolVersion": proto,
+                    "capabilities": { "tools": {} },
+                    "serverInfo": { "name": "zed-aws-toolkit", "version": "0.5.0" }
+                })))
+            }
 
             "tools/list" => Some(JsonRpcResponse::result(id, json!({
                 "tools": all_tools()
