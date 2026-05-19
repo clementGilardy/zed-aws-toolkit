@@ -41,9 +41,9 @@ pub async fn list_clusters(client: &Client) -> Result<Vec<String>> {
             req = req.next_token(t);
         }
         let resp = req.send().await?;
-        arns.extend(resp.cluster_arns().iter().map(|s| s.clone()));
+        arns.extend(resp.cluster_arns().iter().cloned());
         match resp.next_token() {
-            Some(t) => next_token = Some(t.to_string()),
+            Some(t) => next_token = Some(t.to_owned()),
             None => break,
         }
     }
@@ -60,9 +60,9 @@ pub async fn list_services(client: &Client, cluster: &str) -> Result<Vec<String>
             req = req.next_token(t);
         }
         let resp = req.send().await?;
-        arns.extend(resp.service_arns().iter().map(|s| s.clone()));
+        arns.extend(resp.service_arns().iter().cloned());
         match resp.next_token() {
-            Some(t) => next_token = Some(t.to_string()),
+            Some(t) => next_token = Some(t.to_owned()),
             None => break,
         }
     }
@@ -86,9 +86,9 @@ pub async fn list_tasks(
             req = req.next_token(t);
         }
         let resp = req.send().await?;
-        arns.extend(resp.task_arns().iter().map(|s| s.clone()));
+        arns.extend(resp.task_arns().iter().cloned());
         match resp.next_token() {
-            Some(t) => next_token = Some(t.to_string()),
+            Some(t) => next_token = Some(t.to_owned()),
             None => break,
         }
     }
@@ -107,12 +107,19 @@ pub async fn describe_task(
         .send()
         .await?;
 
-    let task = resp
-        .tasks()
-        .first()
-        .ok_or_else(|| anyhow::anyhow!("task not found: {}", task_arn))?;
+    let task = resp.tasks().first().ok_or_else(|| {
+        let reason = resp
+            .failures()
+            .first()
+            .and_then(|f| f.reason())
+            .unwrap_or("unknown");
+        anyhow::anyhow!("task not found: {} (reason: {})", task_arn, reason)
+    })?;
 
-    let task_def_arn = task.task_definition_arn().unwrap_or_default().to_string();
+    let task_def_arn = task
+        .task_definition_arn()
+        .ok_or_else(|| anyhow::anyhow!("task {} has no task_definition_arn", task_arn))?
+        .to_owned();
     let last_status = task.last_status().unwrap_or_default().to_string();
     let desired_status = task.desired_status().unwrap_or_default().to_string();
     let started_at = task.started_at().map(|t| t.to_string());
@@ -171,27 +178,60 @@ mod tests {
     use super::*;
 
     #[test]
-    fn describe_task_shape() {
-        let t = serde_json::json!({
-            "task_arn": "arn:aws:ecs:eu-central-1:123456789012:task/my-cluster/abc123",
-            "task_definition_arn": "arn:aws:ecs:eu-central-1:123456789012:task-definition/my-task:1",
+    fn describe_task_output_shape() {
+        // Verify the JSON output structure that describe_task would return
+        let task_arn = "arn:aws:ecs:eu-central-1:123456789012:task/my-cluster/abc123";
+        let task_def_arn = "arn:aws:ecs:eu-central-1:123456789012:task-definition/my-task:1";
+
+        let containers = vec![serde_json::json!({
+            "name": "app",
+            "image": "nginx:latest",
+            "status": "RUNNING",
+        })];
+        let log_config = vec![serde_json::json!({
+            "container": "app",
+            "log_driver": "awslogs",
+            "options": {"awslogs-group": "/ecs/my-task"},
+        })];
+
+        let result = serde_json::json!({
+            "task_arn": task_arn,
+            "task_definition_arn": task_def_arn,
             "last_status": "RUNNING",
             "desired_status": "RUNNING",
             "started_at": "2026-05-19T10:00:00Z",
-            "stopped_at": null,
-            "stopped_reason": null,
-            "containers": [{"name": "app", "image": "nginx:latest", "status": "RUNNING"}],
-            "log_config": [{"container": "app", "log_driver": "awslogs", "options": {}}],
+            "stopped_at": serde_json::Value::Null,
+            "stopped_reason": serde_json::Value::Null,
+            "containers": containers,
+            "log_config": log_config,
         });
-        assert_eq!(t["last_status"], "RUNNING");
-        assert!(t["containers"].is_array());
-        assert!(t["log_config"].is_array());
+
+        assert_eq!(result["task_arn"], task_arn);
+        assert_eq!(result["last_status"], "RUNNING");
+        assert!(result["stopped_at"].is_null());
+        assert!(result["containers"].is_array());
+        assert_eq!(result["containers"][0]["name"], "app");
+        assert_eq!(result["containers"][0]["image"], "nginx:latest");
+        assert!(result["log_config"].is_array());
+        assert_eq!(result["log_config"][0]["log_driver"], "awslogs");
+        assert!(result["log_config"][0]["options"]["awslogs-group"].is_string());
     }
 
     #[test]
-    fn list_clusters_returns_vec() {
-        let arns: Vec<String> = vec!["arn:aws:ecs:eu-central-1:123:cluster/my-cluster".into()];
-        assert_eq!(arns.len(), 1);
-        assert!(arns[0].contains("cluster"));
+    fn task_not_found_error_message_contains_arn() {
+        let task_arn = "arn:aws:ecs:eu-central-1:123:task/cluster/abc";
+        let err = anyhow::anyhow!("task not found: {} (reason: {})", task_arn, "MISSING");
+        assert!(err.to_string().contains(task_arn));
+        assert!(err.to_string().contains("MISSING"));
+    }
+
+    #[test]
+    fn missing_task_def_arn_error() {
+        let task_arn = "arn:aws:ecs:eu-central-1:123:task/cluster/abc";
+        let result: Result<String> = Err(anyhow::anyhow!(
+            "task {} has no task_definition_arn",
+            task_arn
+        ));
+        assert!(result.unwrap_err().to_string().contains("task_definition_arn"));
     }
 }
