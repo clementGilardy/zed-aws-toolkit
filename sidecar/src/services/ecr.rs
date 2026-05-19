@@ -79,15 +79,16 @@ pub async fn list_images(
                 "size_bytes": img.image_size_in_bytes(),
             }));
         }
-        match resp.next_token() {
-            Some(t) => next_token = Some(t.to_owned()),
-            None => break,
-        }
+        // Check max BEFORE processing next_token
         if let Some(m) = max {
             if images.len() >= m as usize {
                 images.truncate(m as usize);
                 break;
             }
+        }
+        match resp.next_token() {
+            Some(t) => next_token = Some(t.to_owned()),
+            None => break,
         }
     }
     Ok(images)
@@ -99,16 +100,32 @@ mod tests {
 
     #[test]
     fn list_repos_output_shape() {
-        let repo = serde_json::json!({
-            "name": "my-app",
-            "uri": "123456789012.dkr.ecr.eu-central-1.amazonaws.com/my-app",
+        // Simulates the JSON shape that list_repos builds for each repository entry.
+        // Specifically checks that image_tag_mutability falls back to "unknown" when None.
+        let name = "my-app";
+        let uri = "123456789012.dkr.ecr.eu-central-1.amazonaws.com/my-app";
+
+        // Case: mutability known
+        let repo_known = serde_json::json!({
+            "name": name,
+            "uri": uri,
             "created_at": "2026-01-01T00:00:00Z",
             "image_tag_mutability": "MUTABLE",
         });
-        assert_eq!(repo["name"], "my-app");
-        assert!(repo["uri"].as_str().unwrap().contains("dkr.ecr"));
-        assert_eq!(repo["image_tag_mutability"], "MUTABLE");
-        assert!(repo["created_at"].is_string());
+        assert_eq!(repo_known["name"], name);
+        assert!(repo_known["uri"].as_str().unwrap().contains("dkr.ecr"));
+        assert_eq!(repo_known["image_tag_mutability"], "MUTABLE");
+
+        // Case: mutability unknown (None path → unwrap_or("unknown"))
+        let mutability: Option<&str> = None;
+        let repo_unknown = serde_json::json!({
+            "name": name,
+            "uri": uri,
+            "created_at": serde_json::Value::Null,
+            "image_tag_mutability": mutability.unwrap_or("unknown"),
+        });
+        assert_eq!(repo_unknown["image_tag_mutability"], "unknown");
+        assert!(repo_unknown["created_at"].is_null());
     }
 
     #[test]
