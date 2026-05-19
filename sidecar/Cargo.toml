@@ -16,6 +16,8 @@ aws-config = { version = "1", features = ["behavior-version-latest"] }
 aws-sdk-s3 = "1"
 aws-sdk-lambda = "1"
 aws-sdk-cloudwatchlogs = "1"
+aws-sdk-ecs = "1"
+aws-sdk-ecr = "1"
 aws-sdk-sso = "1"
 aws-sdk-ssooidc = "1"
 dirs = "5"

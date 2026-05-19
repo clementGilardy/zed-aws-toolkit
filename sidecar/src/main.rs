@@ -14,7 +14,9 @@ async fn main() -> anyhow::Result<()> {
     tools::auth::register(&mut dispatcher, state.clone());
     tools::s3::register(&mut dispatcher, state.clone());
     tools::lambda::register(&mut dispatcher, state.clone());
-    tools::cloudwatch::register(&mut dispatcher, state);
+    tools::cloudwatch::register(&mut dispatcher, state.clone());
+    tools::ecs::register(&mut dispatcher, state.clone());
+    tools::ecr::register(&mut dispatcher, state);
 
     let stdin = tokio::io::stdin();
     let stdout = tokio::io::stdout();
