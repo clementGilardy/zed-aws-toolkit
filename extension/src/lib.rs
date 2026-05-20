@@ -41,14 +41,12 @@ impl zed::Extension for AwsToolkitExtension {
 
         let binary_path = format!("zed-aws-sidecar-{}", release.version);
 
-        if !std::fs::metadata(&binary_path).map(|m| m.is_file()).unwrap_or(false) {
-            zed::download_file(
-                &asset.download_url,
-                &binary_path,
-                DownloadedFileType::Uncompressed,
-            )?;
-            zed::make_file_executable(&binary_path)?;
-        }
+        zed::download_file(
+            &asset.download_url,
+            &binary_path,
+            DownloadedFileType::Uncompressed,
+        )?;
+        zed::make_file_executable(&binary_path)?;
 
         Ok(zed::Command {
             command: binary_path,
