@@ -4,7 +4,7 @@ use aws_sdk_sso::Client as SsoClient;
 use aws_sdk_ssooidc::Client as OidcClient;
 use chrono::{Duration, Utc};
 
-use crate::auth::cache::{write_sso_token, CachedCredentials, SsoTokenCache};
+use crate::auth::cache::{read_sso_token, write_sso_token, CachedCredentials, SsoTokenCache};
 use crate::auth::config::SsoProfile;
 
 const CLIENT_NAME: &str = "zed-aws-toolkit";
@@ -94,6 +94,17 @@ pub async fn sso_login(profile: &SsoProfile) -> Result<CachedCredentials> {
 
     let role_creds = get_role_credentials(profile, &access_token).await?;
     Ok(role_creds)
+}
+
+pub async fn ensure_authenticated(profile: &SsoProfile) -> Result<CachedCredentials> {
+    let token = match read_sso_token(&profile.sso_start_url)? {
+        Some(t) if !t.is_expired() => t,
+        _ => {
+            eprintln!("No valid SSO token for profile '{}', triggering login...", profile.name);
+            return sso_login(profile).await;
+        }
+    };
+    get_role_credentials(profile, &token.access_token).await
 }
 
 pub async fn get_role_credentials(

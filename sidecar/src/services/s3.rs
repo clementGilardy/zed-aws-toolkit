@@ -1,23 +1,23 @@
-use anyhow::{bail, Result};
+use anyhow::Result;
 use aws_config::BehaviorVersion;
 use aws_sdk_s3::config::Credentials;
 use aws_sdk_s3::presigning::PresigningConfig;
 use aws_sdk_s3::Client;
 use std::time::Duration;
 
-use crate::auth::cache::{read_sso_token, CachedCredentials};
+use crate::auth::cache::CachedCredentials;
 use crate::auth::config::SsoProfile;
-use crate::auth::login::get_role_credentials;
+use crate::auth::login::ensure_authenticated;
 
 pub async fn build_client(profile: &SsoProfile) -> Result<Client> {
-    let creds = resolve_credentials(profile).await?;
+    let creds = ensure_authenticated(profile).await?;
     build_client_with_creds(&creds, &profile.region).await
 }
 
 // Builds an S3 client for a specific bucket by detecting its region first.
 // This handles cross-region buckets: list_buckets may return buckets from any region.
 pub async fn build_client_for_bucket(profile: &SsoProfile, bucket: &str) -> Result<Client> {
-    let creds = resolve_credentials(profile).await?;
+    let creds = ensure_authenticated(profile).await?;
     // Bootstrap client in profile region to call get_bucket_location
     let base = build_client_with_creds(&creds, &profile.region).await?;
     let region = get_bucket_region(&base, bucket).await?;
@@ -50,16 +50,6 @@ async fn get_bucket_region(client: &Client, bucket: &str) -> Result<String> {
     Ok(region)
 }
 
-async fn resolve_credentials(profile: &SsoProfile) -> Result<CachedCredentials> {
-    let token = match read_sso_token(&profile.sso_start_url)? {
-        Some(t) if !t.is_expired() => t,
-        _ => bail!(
-            "Not authenticated. Run sso_login with profile \"{}\" first.",
-            profile.name
-        ),
-    };
-    get_role_credentials(profile, &token.access_token).await
-}
 
 pub async fn list_buckets(client: &Client) -> Result<Vec<String>> {
     let resp = client.list_buckets().send().await?;

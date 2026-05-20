@@ -39,7 +39,7 @@ impl Dispatcher {
                 Some(JsonRpcResponse::result(id, json!({
                     "protocolVersion": proto,
                     "capabilities": { "tools": {} },
-                    "serverInfo": { "name": "zed-aws-toolkit", "version": "0.5.0" }
+                    "serverInfo": { "name": "zed-aws-toolkit", "version": "0.6.0" }
                 })))
             }
 
@@ -102,11 +102,11 @@ mod tests {
     }
 
     #[test]
-    fn tools_list_returns_22_tools() {
+    fn tools_list_returns_23_tools() {
         let d = Dispatcher::new();
         let resp = d.dispatch(make_msg("tools/list", Some(1), None)).unwrap();
         let tools = &resp.result.unwrap()["tools"];
-        assert_eq!(tools.as_array().unwrap().len(), 22);
+        assert_eq!(tools.as_array().unwrap().len(), 23);
     }
 
     #[test]

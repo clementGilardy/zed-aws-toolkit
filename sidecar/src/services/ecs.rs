@@ -1,14 +1,13 @@
-use anyhow::{bail, Result};
+use anyhow::Result;
 use aws_config::BehaviorVersion;
 use aws_sdk_ecs::config::{Credentials, Region};
 use aws_sdk_ecs::Client;
 
-use crate::auth::cache::{read_sso_token, CachedCredentials};
 use crate::auth::config::SsoProfile;
-use crate::auth::login::get_role_credentials;
+use crate::auth::login::ensure_authenticated;
 
 pub async fn build_client(profile: &SsoProfile) -> Result<Client> {
-    let creds = resolve_credentials(profile).await?;
+    let creds = ensure_authenticated(profile).await?;
     let sdk_config = aws_config::defaults(BehaviorVersion::latest())
         .region(Region::new(profile.region.clone()))
         .credentials_provider(Credentials::new(
@@ -23,13 +22,6 @@ pub async fn build_client(profile: &SsoProfile) -> Result<Client> {
     Ok(Client::new(&sdk_config))
 }
 
-async fn resolve_credentials(profile: &SsoProfile) -> Result<CachedCredentials> {
-    let token = match read_sso_token(&profile.sso_start_url)? {
-        Some(t) if !t.is_expired() => t,
-        _ => bail!("Not authenticated. Run sso_login with profile \"{}\" first.", profile.name),
-    };
-    get_role_credentials(profile, &token.access_token).await
-}
 
 pub async fn list_clusters(client: &Client) -> Result<Vec<String>> {
     let mut arns = Vec::new();

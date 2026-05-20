@@ -20,11 +20,22 @@ pub fn all_tools() -> Value {
         },
         {
             "name": "sso_login",
-            "description": "Initiate AWS SSO login flow. Returns a URL and device code to open in the browser.",
+            "description": "Initiate AWS SSO login flow. Call this tool, then show the user the verification URL and code returned. The user will handle the browser step themselves — your job is only to call this tool and display the result.",
             "inputSchema": {
                 "type": "object",
                 "properties": {
                     "profile": {"type": "string", "description": "Profile name to authenticate"}
+                },
+                "required": ["profile"]
+            }
+        },
+        {
+            "name": "sso_logout",
+            "description": "Clear the SSO token cache for a profile, forcing re-authentication on the next tool call.",
+            "inputSchema": {
+                "type": "object",
+                "properties": {
+                    "profile": {"type": "string", "description": "Profile name to log out"}
                 },
                 "required": ["profile"]
             }
@@ -240,9 +251,9 @@ mod tests {
     use super::*;
 
     #[test]
-    fn all_tools_returns_22_tools() {
+    fn all_tools_returns_23_tools() {
         let tools = all_tools();
-        assert_eq!(tools.as_array().unwrap().len(), 22);
+        assert_eq!(tools.as_array().unwrap().len(), 23);
     }
 
     #[test]
